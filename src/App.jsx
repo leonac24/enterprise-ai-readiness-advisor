@@ -31,6 +31,15 @@ const EXAMPLES = [
   "The client is a 5,000-person regional bank. Legacy mainframe systems, siloed data teams across 4 divisions, no ML engineers on staff. Leadership is enthusiastic about AI but IT leadership is resistant to change.",
   "The client is a 200-person healthcare SaaS startup on a modern AWS cloud stack with a strong data engineering team. Regulatory concerns around HIPAA compliance are the primary barrier slowing AI adoption.",
   "The client is a global telecom with 80,000 employees. Data lakes exist but quality is poor and ungoverned. A few isolated AI pilots have launched in customer service, but there is no central AI strategy or owner.",
+  "The client is a 12,000-person automotive manufacturer operating across 9 plants. OT and IT systems are fragmented, predictive maintenance pilots exist in one region, and procurement data quality limits enterprise-scale optimization.",
+  "The client is a national grocery retailer with 1,100 stores and a growing e-commerce channel. Merchandising teams use dashboards, but demand forecasting is inconsistent and pricing decisions are still mostly manual by region.",
+];
+
+const COMPARE_EXAMPLE_PRESETS = [
+  { label: "Example 1 vs Example 2", a: 0, b: 1 },
+  { label: "Example 1 vs Example 3", a: 0, b: 2 },
+  { label: "Example 2 vs Example 4", a: 1, b: 3 },
+  { label: "Example 3 vs Example 5", a: 2, b: 4 },
 ];
 
 const LOADING_STEPS = ["Parsing company profile", "Scoring AI readiness", "Identifying blockers", "Building roadmap"];
@@ -995,18 +1004,18 @@ export default function App() {
             <div className="compare-footer">
               <div className="examples-inline">
                 <span className="examples-label">Load examples:</span>
-                <button
-                  className="example-chip"
-                  onClick={() => { setInputA(EXAMPLES[0]); setInputB(EXAMPLES[1]); }}
-                >
-                  Examples 1 &amp; 2
-                </button>
-                <button
-                  className="example-chip"
-                  onClick={() => { setInputA(EXAMPLES[1]); setInputB(EXAMPLES[2]); }}
-                >
-                  Examples 2 &amp; 3
-                </button>
+                {COMPARE_EXAMPLE_PRESETS.map((preset) => (
+                  <button
+                    key={preset.label}
+                    className="example-chip"
+                    onClick={() => {
+                      setInputA(EXAMPLES[preset.a]);
+                      setInputB(EXAMPLES[preset.b]);
+                    }}
+                  >
+                    {preset.label}
+                  </button>
+                ))}
               </div>
               <button
                 className="submit-btn"
