@@ -44,6 +44,21 @@ const COMPARE_EXAMPLE_PRESETS = [
 
 const LOADING_STEPS = ["Parsing company profile", "Scoring AI readiness", "Identifying blockers", "Building roadmap"];
 
+const GAUGE_CONFETTI_PARTICLES = [
+  { x: 16, y: 26, dx: -36, dy: -30, spin: -70, delay: 0, duration: 880, hue: "#86bc25" },
+  { x: 24, y: 18, dx: -24, dy: -44, spin: 60, delay: 60, duration: 960, hue: "#1b5e8f" },
+  { x: 34, y: 14, dx: -10, dy: -52, spin: -40, delay: 130, duration: 900, hue: "#f39c12" },
+  { x: 44, y: 12, dx: -4, dy: -60, spin: 90, delay: 180, duration: 980, hue: "#86bc25" },
+  { x: 56, y: 12, dx: 5, dy: -58, spin: -95, delay: 210, duration: 900, hue: "#1b5e8f" },
+  { x: 66, y: 14, dx: 14, dy: -50, spin: 42, delay: 250, duration: 940, hue: "#f39c12" },
+  { x: 76, y: 19, dx: 26, dy: -43, spin: -56, delay: 320, duration: 960, hue: "#86bc25" },
+  { x: 84, y: 27, dx: 36, dy: -30, spin: 64, delay: 380, duration: 980, hue: "#1b5e8f" },
+  { x: 14, y: 38, dx: -34, dy: -18, spin: -82, delay: 420, duration: 930, hue: "#f39c12" },
+  { x: 86, y: 39, dx: 34, dy: -18, spin: 78, delay: 470, duration: 970, hue: "#86bc25" },
+  { x: 18, y: 52, dx: -22, dy: -10, spin: -48, delay: 520, duration: 920, hue: "#1b5e8f" },
+  { x: 82, y: 52, dx: 21, dy: -10, spin: 53, delay: 560, duration: 960, hue: "#f39c12" },
+];
+
 const CATEGORY_LABELS = {
   dataMaturity: "Data Maturity",
   talentSkills: "Talent & Skills",
@@ -288,24 +303,68 @@ function buildIndustryInsights(result, benchmark) {
   };
 }
 
-function useCountUp(target, duration = 1200) {
+function useInViewOnce(threshold = 0.18, rootMargin = "0px 0px -10% 0px") {
+  const ref = useRef(null);
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    if (isVisible) return;
+    const node = ref.current;
+    if (!node) return;
+
+    if (typeof IntersectionObserver === "undefined") {
+      const fallbackTimer = setTimeout(() => setIsVisible(true), 0);
+      return () => clearTimeout(fallbackTimer);
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            setIsVisible(true);
+            observer.disconnect();
+          }
+        });
+      },
+      { threshold, rootMargin }
+    );
+
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [isVisible, threshold, rootMargin]);
+
+  return [ref, isVisible];
+}
+
+function useCountUp(target, duration = 1200, delay = 0) {
   const [count, setCount] = useState(0);
   useEffect(() => {
-    if (target === 0) return;
-    let start = 0;
-    const step = 16;
-    const increment = target / (duration / step);
-    const timer = setInterval(() => {
-      start += increment;
-      if (start >= target) {
-        setCount(target);
-        clearInterval(timer);
-      } else {
-        setCount(Math.floor(start));
-      }
-    }, step);
-    return () => clearInterval(timer);
-  }, [target, duration]);
+    let timer;
+
+    const kickoff = setTimeout(() => {
+      setCount(0);
+      if (target === 0) return;
+
+      let start = 0;
+      const step = 16;
+      const increment = target / (duration / step);
+
+      timer = setInterval(() => {
+        start += increment;
+        if (start >= target) {
+          setCount(target);
+          clearInterval(timer);
+        } else {
+          setCount(Math.floor(start));
+        }
+      }, step);
+    }, delay);
+
+    return () => {
+      clearTimeout(kickoff);
+      if (timer) clearInterval(timer);
+    };
+  }, [target, duration, delay]);
   return count;
 }
 
@@ -333,10 +392,14 @@ async function callGemini(text) {
 
 function ScoreGauge({ score, benchmarkScore }) {
   const animated = useCountUp(score);
+  const isSettled = score > 0 && animated >= score;
+  const showConfetti = score >= 80 && isSettled;
   const data = [{ value: animated, fill: scoreColor(score) }];
+
   return (
     <div className="gauge-wrap">
       <div className="gauge-container">
+        <div className={`gauge-burst${isSettled ? " gauge-burst--active" : ""}`} />
         <ResponsiveContainer width="100%" height={200}>
           <RadialBarChart
             cx="50%"
@@ -356,6 +419,26 @@ function ScoreGauge({ score, benchmarkScore }) {
           <span className="gauge-score" style={{ color: scoreColor(score) }}>{animated}</span>
           <span className="gauge-label">out of 100</span>
         </div>
+        {showConfetti && (
+          <div className="gauge-confetti" aria-hidden="true">
+            {GAUGE_CONFETTI_PARTICLES.map((particle, index) => (
+              <span
+                key={`${particle.x}-${particle.y}-${index}`}
+                className="gauge-confetti-piece"
+                style={{
+                  "--piece-x": `${particle.x}%`,
+                  "--piece-y": `${particle.y}%`,
+                  "--piece-dx": `${particle.dx}px`,
+                  "--piece-dy": `${particle.dy}px`,
+                  "--piece-spin": `${particle.spin}deg`,
+                  "--piece-delay": `${particle.delay}ms`,
+                  "--piece-duration": `${particle.duration}ms`,
+                  "--piece-color": particle.hue,
+                }}
+              />
+            ))}
+          </div>
+        )}
       </div>
       <div className="maturity-badge" style={{ background: scoreColor(score) + "18", color: scoreColor(score) }}>
         {maturityLabel(score)}
@@ -369,26 +452,42 @@ function ScoreGauge({ score, benchmarkScore }) {
   );
 }
 
-function CategoryBars({ categories, benchmark }) {
+function AnimatedCategoryBar({ categoryKey, value, benchmarkValue, index, startDelay = 0 }) {
+  const rowDelay = startDelay + index * 120;
+  const animatedValue = useCountUp(value, 950, rowDelay);
+
+  return (
+    <div className="bar-row" style={{ "--bar-row-delay": `${rowDelay}ms` }}>
+      <span className="bar-label">{CATEGORY_LABELS[categoryKey]}</span>
+      <div className="bar-track">
+        <div className="bar-fill" style={{ width: `${animatedValue}%`, background: scoreColor(animatedValue) }} />
+        {benchmarkValue != null && (
+          <div
+            className="bar-benchmark-marker"
+            style={{ left: `${benchmarkValue}%` }}
+            title={`Industry avg: ${benchmarkValue}`}
+          />
+        )}
+      </div>
+      <span className="bar-value" style={{ color: scoreColor(animatedValue) }}>{animatedValue}</span>
+    </div>
+  );
+}
+
+function CategoryBars({ categories, benchmark, startDelay = 0 }) {
   return (
     <div className="category-bars">
-      {Object.entries(categories).map(([key, value]) => {
+      {Object.entries(categories).map(([key, value], index) => {
         const bv = benchmark ? benchmark.categories[key] : null;
         return (
-          <div key={key} className="bar-row">
-            <span className="bar-label">{CATEGORY_LABELS[key]}</span>
-            <div className="bar-track">
-              <div className="bar-fill" style={{ width: `${value}%`, background: scoreColor(value) }} />
-              {bv != null && (
-                <div
-                  className="bar-benchmark-marker"
-                  style={{ left: `${bv}%` }}
-                  title={`Industry avg: ${bv}`}
-                />
-              )}
-            </div>
-            <span className="bar-value" style={{ color: scoreColor(value) }}>{value}</span>
-          </div>
+          <AnimatedCategoryBar
+            key={key}
+            categoryKey={key}
+            value={value}
+            benchmarkValue={bv}
+            index={index}
+            startDelay={startDelay}
+          />
         );
       })}
       {benchmark && (
@@ -401,44 +500,59 @@ function CategoryBars({ categories, benchmark }) {
 }
 
 function IndustryDeltaPanel({ result, benchmark, compact = false }) {
+  const [panelRef, panelVisible] = useInViewOnce(0.2, "0px 0px -8% 0px");
   if (!benchmark) return null;
 
   const insights = buildIndustryInsights(result, benchmark);
   const actions = compact ? insights.priorityActions.slice(0, 2) : insights.priorityActions;
   const overallTone = benchmarkDeltaTone(insights.overallDelta);
+  const kpis = [
+    { label: "Selected benchmark", value: benchmark.label },
+    {
+      label: "Estimated peer percentile",
+      value: `${insights.percentile}${percentileSuffix(insights.percentile)}`,
+    },
+    {
+      label: "Top quartile target",
+      value:
+        insights.pointsToTopQuartile === 0
+          ? "Already top quartile"
+          : `${insights.pointsToTopQuartile} pts to ${insights.topQuartileScore}`,
+    },
+  ];
 
   return (
-    <div className={`section-block animate-in industry-delta-panel${compact ? " industry-delta-panel--compact" : ""}`}>
-      <div className="section-header">
+    <div
+      ref={panelRef}
+      className={`section-block industry-delta-panel${compact ? " industry-delta-panel--compact" : ""}${panelVisible ? " industry-delta-panel--visible" : ""}`}
+    >
+      <div className="section-header industry-animate-item" style={{ "--industry-delay": "40ms" }}>
         <span className="section-title">Industry Positioning</span>
-        <span className={`industry-overall-chip industry-overall-chip--${overallTone}`}>
+        <span className={`industry-overall-chip industry-overall-chip--${overallTone} industry-animate-item`} style={{ "--industry-delay": "90ms" }}>
           {benchmarkDeltaLabel(insights.overallDelta)} ({signedDelta(insights.overallDelta)})
         </span>
       </div>
 
       <div className="industry-kpi-grid">
-        <div className="industry-kpi-card">
-          <div className="industry-kpi-label">Selected benchmark</div>
-          <div className="industry-kpi-value">{benchmark.label}</div>
-        </div>
-        <div className="industry-kpi-card">
-          <div className="industry-kpi-label">Estimated peer percentile</div>
-          <div className="industry-kpi-value">
-            {insights.percentile}
-            {percentileSuffix(insights.percentile)}
+        {kpis.map((kpi, index) => (
+          <div
+            key={kpi.label}
+            className="industry-kpi-card industry-animate-item"
+            style={{ "--industry-delay": `${160 + index * 90}ms` }}
+          >
+            <div className="industry-kpi-label">{kpi.label}</div>
+            <div className="industry-kpi-value">{kpi.value}</div>
           </div>
-        </div>
-        <div className="industry-kpi-card">
-          <div className="industry-kpi-label">Top quartile target</div>
-          <div className="industry-kpi-value">
-            {insights.pointsToTopQuartile === 0 ? "Already top quartile" : `${insights.pointsToTopQuartile} pts to ${insights.topQuartileScore}`}
-          </div>
-        </div>
+        ))}
       </div>
 
       <div className="industry-delta-list">
-        {insights.categoryDeltas.map(item => (
-          <div key={item.key} className="industry-delta-row">
+        {insights.categoryDeltas.map((item, index) => (
+          <div
+            key={item.key}
+            className="industry-delta-row industry-animate-item"
+            style={{ "--industry-delay": `${420 + index * 80}ms` }}
+          >
             <div className="industry-delta-name">{item.label}</div>
             <div className="industry-delta-scores">
               {item.score} vs {item.benchmarkScore}
@@ -450,7 +564,11 @@ function IndustryDeltaPanel({ result, benchmark, compact = false }) {
 
       <div className={`industry-actions-grid${compact ? " industry-actions-grid--compact" : ""}`}>
         {actions.map((action, i) => (
-          <div key={`${action.title}-${i}`} className="industry-action-card">
+          <div
+            key={`${action.title}-${i}`}
+            className="industry-action-card industry-animate-item"
+            style={{ "--industry-delay": `${760 + i * 110}ms` }}
+          >
             <div className="industry-action-step">Priority {i + 1}</div>
             <div className="industry-action-title">{action.title}</div>
             <div className="industry-action-detail">{action.detail}</div>
@@ -462,10 +580,12 @@ function IndustryDeltaPanel({ result, benchmark, compact = false }) {
 }
 
 function Blockers({ blockers }) {
+  const [blockersRef, blockersVisible] = useInViewOnce(0.22, "0px 0px -8% 0px");
+
   return (
-    <div className="blockers-grid">
+    <div ref={blockersRef} className={`blockers-grid${blockersVisible ? " blockers-grid--visible" : ""}`}>
       {blockers.map((b, i) => (
-        <div key={i} className="blocker-card" style={{ animationDelay: `${i * 80}ms` }}>
+        <div key={i} className="blocker-card" style={{ "--blocker-delay": `${i * 120}ms` }}>
           <div className="blocker-index">{String(i + 1).padStart(2, "0")}</div>
           <div className="blocker-title">{b.title}</div>
           <div className="blocker-detail">{b.detail}</div>
@@ -476,10 +596,12 @@ function Blockers({ blockers }) {
 }
 
 function Roadmap({ roadmap }) {
+  const [roadmapRef, roadmapVisible] = useInViewOnce(0.25, "0px 0px -12% 0px");
+
   return (
-    <div className="roadmap">
+    <div ref={roadmapRef} className={`roadmap${roadmapVisible ? " roadmap--visible" : ""}`}>
       {roadmap.map((item, i) => (
-        <div key={i} className="roadmap-item" style={{ animationDelay: `${i * 80}ms` }}>
+        <div key={i} className="roadmap-item" style={{ "--roadmap-delay": `${i * 160}ms` }}>
           <div className="roadmap-node">
             <div className="node-circle">{item.step}</div>
             {i < roadmap.length - 1 && <div className="node-line" />}
@@ -512,32 +634,21 @@ function LoadingSpinner() {
   );
 }
 
-function FollowUpQA({ result, profile, benchmark }) {
-  const [messages, setMessages] = useState([]);
-  const [inputText, setInputText] = useState("");
-  const [thinking, setThinking] = useState(false);
-  const bottomRef = useRef(null);
-
-  const qaSystemPrompt = `You are a senior enterprise AI readiness consultant. You have just completed an assessment of the following client profile:
-
-Profile: ${profile}
-
-Assessment results:
-- Overall Score: ${result.overallScore}/100 (${maturityLabel(result.overallScore)})
-- Data Maturity: ${result.categories.dataMaturity}, Talent & Skills: ${result.categories.talentSkills}, Infrastructure: ${result.categories.infrastructure}, Org Culture: ${result.categories.orgCulture}
-- Verdict: ${result.verdict}
-- Key Blockers: ${result.blockers.map(b => b.title).join(", ")}
-- Risk Summary: ${result.riskSummary}
-
-${benchmark
-  ? `Industry benchmark context:
+function benchmarkPromptContext(benchmark) {
+  return benchmark
+    ? `Industry benchmark context:
 - Selected benchmark: ${benchmark.label}
 - Industry average overall score: ${benchmark.overallScore}
 - Top quartile target score: ${benchmark.topQuartileScore}
 - Category averages: Data Maturity ${benchmark.categories.dataMaturity}, Talent & Skills ${benchmark.categories.talentSkills}, Infrastructure ${benchmark.categories.infrastructure}, Org Culture ${benchmark.categories.orgCulture}`
-  : "No industry benchmark was selected for this assessment."}
+    : "No industry benchmark was selected for this assessment.";
+}
 
-Answer follow-up questions from the consultant team concisely and analytically. Maintain the tone of a senior advisor. Respond in plain text (no markdown, no bullet points with asterisks — use plain prose or numbered lists only).`;
+function AdvisorQASection({ qaSystemPrompt, emptyText, animationDelay = "300ms" }) {
+  const [messages, setMessages] = useState([]);
+  const [inputText, setInputText] = useState("");
+  const [thinking, setThinking] = useState(false);
+  const bottomRef = useRef(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -588,7 +699,7 @@ Answer follow-up questions from the consultant team concisely and analytically. 
   }
 
   return (
-    <div className="section-block animate-in qa-section" style={{ animationDelay: "300ms" }}>
+    <div className="section-block animate-in qa-section" style={{ animationDelay }}>
       <div className="section-header">
         <span className="section-title">Follow-up Q&amp;A</span>
         <span className="section-count">Ask the advisor</span>
@@ -596,9 +707,7 @@ Answer follow-up questions from the consultant team concisely and analytically. 
 
       <div className="qa-messages">
         {messages.length === 0 && !thinking && (
-          <div className="qa-empty">
-            Ask a follow-up question about this assessment — e.g. &quot;What should the client prioritize first?&quot; or &quot;How does their data maturity compare to peers?&quot;
-          </div>
+          <div className="qa-empty">{emptyText}</div>
         )}
         {messages.map((m, i) => (
           <div
@@ -615,7 +724,12 @@ Answer follow-up questions from the consultant team concisely and analytically. 
           <div className="qa-bubble-row qa-bubble-row--advisor">
             <div className="qa-avatar">AI</div>
             <div className="qa-bubble qa-bubble--advisor qa-thinking">
-              Thinking<span className="loading-dots">...</span>
+              Thinking
+              <span className="qa-thinking-dots" aria-hidden="true">
+                <span>.</span>
+                <span>.</span>
+                <span>.</span>
+              </span>
             </div>
           </div>
         )}
@@ -641,6 +755,72 @@ Answer follow-up questions from the consultant team concisely and analytically. 
         </button>
       </div>
     </div>
+  );
+}
+
+function FollowUpQA({ result, profile, benchmark }) {
+  const qaSystemPrompt = `You are a senior enterprise AI readiness consultant. You have just completed an assessment of the following client profile:
+
+Profile: ${profile}
+
+Assessment results:
+- Overall Score: ${result.overallScore}/100 (${maturityLabel(result.overallScore)})
+- Data Maturity: ${result.categories.dataMaturity}, Talent & Skills: ${result.categories.talentSkills}, Infrastructure: ${result.categories.infrastructure}, Org Culture: ${result.categories.orgCulture}
+- Verdict: ${result.verdict}
+- Key Blockers: ${result.blockers.map(b => b.title).join(", ")}
+- Risk Summary: ${result.riskSummary}
+
+${benchmarkPromptContext(benchmark)}
+
+Answer follow-up questions from the consultant team concisely and analytically. Maintain the tone of a senior advisor. Respond in plain text (no markdown, no bullet points with asterisks — use plain prose or numbered lists only).`;
+
+  return (
+    <AdvisorQASection
+      qaSystemPrompt={qaSystemPrompt}
+      emptyText="Ask a follow-up question about this assessment — e.g. &quot;What should the client prioritize first?&quot; or &quot;How does their data maturity compare to peers?&quot;"
+      animationDelay="300ms"
+    />
+  );
+}
+
+function CompareFollowUpQA({ resultA, resultB, profileA, profileB, benchmark }) {
+  const categoryComparison = Object.keys(CATEGORY_LABELS)
+    .map((key) => {
+      const delta = resultA.categories[key] - resultB.categories[key];
+      return `${CATEGORY_LABELS[key]}: A ${resultA.categories[key]} vs B ${resultB.categories[key]} (${signedDelta(delta)})`;
+    })
+    .join(", ");
+
+  const qaSystemPrompt = `You are a senior enterprise AI readiness consultant. You have completed a comparative assessment for two organizations.
+
+Profile A:
+${profileA}
+
+Profile B:
+${profileB}
+
+Comparison results:
+- Profile A overall score: ${resultA.overallScore}/100 (${maturityLabel(resultA.overallScore)})
+- Profile B overall score: ${resultB.overallScore}/100 (${maturityLabel(resultB.overallScore)})
+- Overall delta (A-B): ${signedDelta(resultA.overallScore - resultB.overallScore)}
+- Category comparison: ${categoryComparison}
+- Profile A verdict: ${resultA.verdict}
+- Profile B verdict: ${resultB.verdict}
+- Profile A blockers: ${resultA.blockers.map(b => b.title).join(", ")}
+- Profile B blockers: ${resultB.blockers.map(b => b.title).join(", ")}
+- Profile A risk summary: ${resultA.riskSummary}
+- Profile B risk summary: ${resultB.riskSummary}
+
+${benchmarkPromptContext(benchmark)}
+
+Answer comparative follow-up questions with clear recommendations for each profile and explicit tradeoffs. Maintain the tone of a senior advisor. Respond in plain text (no markdown, no bullet points with asterisks — use plain prose or numbered lists only).`;
+
+  return (
+    <AdvisorQASection
+      qaSystemPrompt={qaSystemPrompt}
+      emptyText="Ask a comparison follow-up — e.g. &quot;Which profile can reach top quartile faster?&quot; or &quot;What should Profile B copy from Profile A first?&quot;"
+      animationDelay="260ms"
+    />
   );
 }
 
@@ -694,31 +874,33 @@ function SingleResultPanel({ result, benchmark }) {
   );
 }
 
-function CompareResultColumn({ result, label, benchmark }) {
+function CompareResultColumn({ result, label, benchmark, columnIndex = 0 }) {
+  const columnDelay = columnIndex * 80;
+
   return (
     <div className="compare-col">
-      <div className="compare-col-label">{label}</div>
+      <div className="compare-col-label animate-in" style={{ animationDelay: `${columnDelay}ms` }}>{label}</div>
 
-      <div className="verdict-bar">
+      <div className="verdict-bar" style={{ animationDelay: `${columnDelay}ms` }}>
         <div className="verdict-inner">
           <div className="verdict-label">Executive Assessment</div>
           <div className="verdict-text">{result.verdict}</div>
         </div>
       </div>
 
-      <div className="score-panel compare-score-panel">
+      <div className="score-panel compare-score-panel animate-in" style={{ animationDelay: `${columnDelay + 80}ms` }}>
         <div className="panel-label">Overall Readiness Score</div>
         <ScoreGauge score={result.overallScore} benchmarkScore={benchmark ? benchmark.overallScore : null} />
       </div>
 
-      <div className="categories-panel compare-categories-panel">
+      <div className="categories-panel compare-categories-panel animate-in" style={{ animationDelay: `${columnDelay + 120}ms` }}>
         <div className="panel-label">Capability Breakdown</div>
-        <CategoryBars categories={result.categories} benchmark={benchmark} />
+        <CategoryBars categories={result.categories} benchmark={benchmark} startDelay={columnDelay + 220} />
       </div>
 
       <IndustryDeltaPanel result={result} benchmark={benchmark} compact />
 
-      <div className="section-block animate-in compare-blockers-block">
+      <div className="section-block animate-in compare-blockers-block" style={{ animationDelay: `${columnDelay + 200}ms` }}>
         <div className="section-header">
           <span className="section-title">Critical Blockers</span>
           <span className="section-count">{result.blockers.length} identified</span>
@@ -726,7 +908,15 @@ function CompareResultColumn({ result, label, benchmark }) {
         <Blockers blockers={result.blockers} />
       </div>
 
-      <div className="risk-banner animate-in compare-risk-banner">
+      <div className="section-block animate-in compare-roadmap-block" style={{ animationDelay: `${columnDelay + 240}ms` }}>
+        <div className="section-header">
+          <span className="section-title">Transformation Roadmap</span>
+          <span className="section-count">{result.roadmap.length} phases</span>
+        </div>
+        <Roadmap roadmap={result.roadmap} />
+      </div>
+
+      <div className="risk-banner animate-in compare-risk-banner" style={{ animationDelay: `${columnDelay + 320}ms` }}>
         <div className="risk-icon">&#9888;</div>
         <div className="risk-content">
           <div className="risk-label">Risk Assessment</div>
@@ -826,6 +1016,10 @@ export default function App() {
 
   function handleKeyDown(e) {
     if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) analyze();
+  }
+
+  function handleCompareKeyDown(e) {
+    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) runComparison();
   }
 
   return (
@@ -983,6 +1177,7 @@ export default function App() {
                   className="input-area"
                   value={inputA}
                   onChange={e => setInputA(e.target.value)}
+                  onKeyDown={handleCompareKeyDown}
                   placeholder="Describe the first client organization..."
                   rows={5}
                 />
@@ -996,6 +1191,7 @@ export default function App() {
                   className="input-area"
                   value={inputB}
                   onChange={e => setInputB(e.target.value)}
+                  onKeyDown={handleCompareKeyDown}
                   placeholder="Describe the second client organization..."
                   rows={5}
                 />
@@ -1017,13 +1213,22 @@ export default function App() {
                   </button>
                 ))}
               </div>
-              <button
-                className="submit-btn"
-                onClick={runComparison}
-                disabled={compareLoading || !inputA.trim() || !inputB.trim()}
-              >
-                {compareLoading ? "Analyzing\u2026" : "Run Comparison \u2192"}
-              </button>
+              <div className="input-footer-right">
+                <button
+                  className="pdf-btn"
+                  onClick={() => window.print()}
+                  disabled={!resultA || !resultB}
+                >
+                  Download PDF
+                </button>
+                <button
+                  className="submit-btn"
+                  onClick={runComparison}
+                  disabled={compareLoading || !inputA.trim() || !inputB.trim()}
+                >
+                  {compareLoading ? "Analyzing\u2026" : "Run Comparison \u2192"}
+                </button>
+              </div>
             </div>
           </section>
         )}
@@ -1102,9 +1307,17 @@ export default function App() {
             </div>
 
             <div className="compare-columns">
-              <CompareResultColumn result={resultA} label="Profile A" benchmark={benchmark} />
-              <CompareResultColumn result={resultB} label="Profile B" benchmark={benchmark} />
+              <CompareResultColumn result={resultA} label="Profile A" benchmark={benchmark} columnIndex={0} />
+              <CompareResultColumn result={resultB} label="Profile B" benchmark={benchmark} columnIndex={1} />
             </div>
+
+            <CompareFollowUpQA
+              resultA={resultA}
+              resultB={resultB}
+              profileA={inputA}
+              profileB={inputB}
+              benchmark={benchmark}
+            />
           </section>
         )}
       </div>
