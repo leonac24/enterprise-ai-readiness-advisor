@@ -41,9 +41,9 @@ const CATEGORY_LABELS = {
 };
 
 function scoreColor(score) {
-  if (score >= 70) return "#00ff87";
-  if (score >= 40) return "#ffd60a";
-  return "#ff4d4d";
+  if (score >= 70) return "#86bc25";
+  if (score >= 40) return "#e67e22";
+  return "#c0392b";
 }
 
 function ScoreGauge({ score }) {
@@ -68,7 +68,7 @@ function ScoreGauge({ score }) {
             tick={false}
           />
           <RadialBar
-            background={{ fill: "#1c2333" }}
+            background={{ fill: "#eeeeee" }}
             dataKey="value"
             angleAxisId={0}
             cornerRadius={9}
@@ -199,14 +199,12 @@ export default function App() {
 
   return (
     <div className="app">
-      {/* Header */}
       <header className="header">
         <div className="header-inner">
           <h1 className="header-title">Enterprise AI Readiness Advisor</h1>
         </div>
       </header>
 
-      {/* Input Section */}
       <section className="input-section">
         <div className="input-card">
           <label className="input-label">
@@ -241,8 +239,7 @@ export default function App() {
                   className="example-btn"
                   onClick={() => setInput(ex)}
                 >
-                  <span className="example-num">0{i + 1}</span>
-                  <span className="example-text">{ex}</span>
+                  Example {i + 1}
                 </button>
               ))}
             </div>
@@ -250,10 +247,8 @@ export default function App() {
         </div>
       </section>
 
-      {/* Loading */}
       {loading && <LoadingSpinner />}
 
-      {/* Error */}
       {error && (
         <div className="error-banner">
           <span className="error-icon">⚠</span>
@@ -261,16 +256,13 @@ export default function App() {
         </div>
       )}
 
-      {/* Results */}
       {result && !loading && (
         <section className="results-section">
-          {/* Verdict */}
           <div className="verdict-bar">
             <span className="verdict-label">EXECUTIVE VERDICT</span>
             <span className="verdict-text">{result.verdict}</span>
           </div>
 
-          {/* Score + Categories */}
           <div className="score-row">
             <div className="score-panel">
               <div className="panel-label">OVERALL AI READINESS SCORE</div>
@@ -282,7 +274,6 @@ export default function App() {
             </div>
           </div>
 
-          {/* Blockers */}
           <div className="section-block">
             <div className="section-header">
               <span className="section-title">CRITICAL BLOCKERS</span>
@@ -291,7 +282,6 @@ export default function App() {
             <Blockers blockers={result.blockers} />
           </div>
 
-          {/* Roadmap */}
           <div className="section-block">
             <div className="section-header">
               <span className="section-title">TRANSFORMATION ROADMAP</span>
@@ -300,7 +290,6 @@ export default function App() {
             <Roadmap roadmap={result.roadmap} />
           </div>
 
-          {/* Risk Banner */}
           <div className="risk-banner">
             <div className="risk-icon">⚠</div>
             <div className="risk-content">
