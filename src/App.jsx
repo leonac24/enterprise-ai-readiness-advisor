@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import {
   RadialBarChart,
   RadialBar,
@@ -33,6 +33,8 @@ const EXAMPLES = [
   "The client is a global telecom with 80,000 employees. Data lakes exist but quality is poor and ungoverned. A few isolated AI pilots have launched in customer service, but there is no central AI strategy or owner.",
 ];
 
+const LOADING_STEPS = ["Parsing company profile", "Scoring AI readiness", "Identifying blockers", "Building roadmap"];
+
 const CATEGORY_LABELS = {
   dataMaturity: "Data Maturity",
   talentSkills: "Talent & Skills",
@@ -40,35 +42,89 @@ const CATEGORY_LABELS = {
   orgCulture: "Org Culture",
 };
 
+const CATEGORY_PLAYBOOK = {
+  dataMaturity: {
+    ifBehind:
+      "Prioritize canonical definitions, quality SLAs, and governed data access so AI teams can trust shared data products.",
+    ifAhead:
+      "Use strong data foundations to standardize feature stores, model telemetry, and measurable business impact tracking.",
+  },
+  talentSkills: {
+    ifBehind:
+      "Close capability gaps with targeted upskilling, a small central AI platform squad, and role-specific enablement plans.",
+    ifAhead:
+      "Convert talent depth into delivery velocity by creating reusable playbooks and mentorship loops across product teams.",
+  },
+  infrastructure: {
+    ifBehind:
+      "Modernize deployment patterns with secure MLOps pipelines, policy controls, and scalable inference environments.",
+    ifAhead:
+      "Leverage infrastructure strength to pilot high-value use cases quickly while enforcing cost and reliability guardrails.",
+  },
+  orgCulture: {
+    ifBehind:
+      "Set clear executive sponsorship, decision rights, and adoption incentives to reduce cross-functional resistance.",
+    ifAhead:
+      "Scale cultural momentum with transparent success metrics and operating cadences that sustain AI adoption.",
+  },
+};
+
+const INDUSTRY_KEYWORDS = [
+  ["bank", "banking", "financial", "fintech", "insurance", "wealth", "credit union", "lending"],
+  ["healthcare", "hospital", "clinical", "hipaa", "pharma", "payer", "provider"],
+  ["retail", "ecommerce", "e-commerce", "store", "consumer", "merchandising"],
+  ["telecom", "telco", "carrier", "network operations", "subscriber"],
+  ["manufacturing", "factory", "plant", "industrial", "supply chain", "operations technology"],
+  ["saas", "software", "tech", "platform", "developer tools", "cloud-native"],
+];
+
 const INDUSTRY_BENCHMARKS = [
   {
     label: "Banking",
     overallScore: 58,
+    topQuartileScore: 74,
+    summary:
+      "Peers in regulated financial services usually progress with strong controls but face slower change velocity and legacy integration constraints.",
     categories: { dataMaturity: 62, talentSkills: 50, infrastructure: 60, orgCulture: 55 },
   },
   {
     label: "Healthcare",
     overallScore: 52,
+    topQuartileScore: 69,
+    summary:
+      "Healthcare peers often show moderate data readiness and infrastructure, with governance and compliance burden as major adoption friction.",
     categories: { dataMaturity: 55, talentSkills: 48, infrastructure: 54, orgCulture: 50 },
   },
   {
     label: "Retail",
     overallScore: 61,
+    topQuartileScore: 77,
+    summary:
+      "Retail peers typically outperform on data-driven decisioning but vary significantly in enterprise-wide operating model maturity.",
     categories: { dataMaturity: 65, talentSkills: 55, infrastructure: 63, orgCulture: 60 },
   },
   {
     label: "Telecom",
     overallScore: 64,
+    topQuartileScore: 80,
+    summary:
+      "Telecom peers generally benefit from scale and infrastructure depth but can be slowed by fragmented ownership and legacy estates.",
     categories: { dataMaturity: 68, talentSkills: 60, infrastructure: 70, orgCulture: 58 },
   },
   {
     label: "Manufacturing",
     overallScore: 47,
+    topQuartileScore: 63,
+    summary:
+      "Manufacturing peers often have uneven digital foundations, with strong operations expertise but slower enterprise data modernization.",
     categories: { dataMaturity: 45, talentSkills: 42, infrastructure: 50, orgCulture: 44 },
   },
   {
     label: "Tech/SaaS",
     overallScore: 78,
+    topQuartileScore: 90,
+    summary:
+      "Tech peers usually lead on productized AI and platform maturity, making talent differentiation and governance discipline key battlegrounds.",
     categories: { dataMaturity: 80, talentSkills: 78, infrastructure: 82, orgCulture: 75 },
   },
 ];
@@ -85,6 +141,142 @@ function maturityLabel(score) {
   if (score >= 40) return "Developing";
   if (score >= 20) return "Foundational";
   return "Nascent";
+}
+
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function signedDelta(delta) {
+  return `${delta > 0 ? "+" : ""}${delta}`;
+}
+
+function percentileSuffix(value) {
+  const lastTwo = value % 100;
+  if (lastTwo >= 11 && lastTwo <= 13) return "th";
+  switch (value % 10) {
+    case 1:
+      return "st";
+    case 2:
+      return "nd";
+    case 3:
+      return "rd";
+    default:
+      return "th";
+  }
+}
+
+function benchmarkDeltaTone(delta) {
+  if (delta >= 8) return "ahead";
+  if (delta >= 2) return "slightly-ahead";
+  if (delta <= -8) return "behind";
+  if (delta <= -2) return "slightly-behind";
+  return "at-parity";
+}
+
+function benchmarkDeltaLabel(delta) {
+  const tone = benchmarkDeltaTone(delta);
+  if (tone === "ahead") return "Ahead of peers";
+  if (tone === "slightly-ahead") return "Slightly ahead";
+  if (tone === "behind") return "Behind peers";
+  if (tone === "slightly-behind") return "Slightly behind";
+  return "At peer parity";
+}
+
+function inferBenchmarkIndex(text) {
+  const source = text.trim().toLowerCase();
+  if (!source) return null;
+
+  let bestIndex = null;
+  let bestScore = 0;
+
+  INDUSTRY_KEYWORDS.forEach((keywords, index) => {
+    const score = keywords.reduce((total, keyword) => {
+      if (!source.includes(keyword)) return total;
+      return total + (keyword.includes(" ") ? 2 : 1);
+    }, 0);
+
+    if (score > bestScore) {
+      bestIndex = index;
+      bestScore = score;
+    }
+  });
+
+  return bestScore > 0 ? bestIndex : null;
+}
+
+function buildIndustryInsights(result, benchmark) {
+  const categoryDeltas = Object.entries(result.categories || {})
+    .map(([key, score]) => {
+      const benchmarkScore = benchmark.categories[key] ?? 0;
+      const delta = score - benchmarkScore;
+      return {
+        key,
+        label: CATEGORY_LABELS[key] || key,
+        score,
+        benchmarkScore,
+        delta,
+        tone: benchmarkDeltaTone(delta),
+      };
+    })
+    .sort((a, b) => a.delta - b.delta);
+
+  const overallDelta = result.overallScore - benchmark.overallScore;
+  const percentile = clamp(Math.round(50 + overallDelta * 2.2), 5, 95);
+  const topQuartileScore = benchmark.topQuartileScore ?? clamp(benchmark.overallScore + 14, 0, 100);
+  const pointsToTopQuartile = Math.max(0, topQuartileScore - result.overallScore);
+
+  const gaps = categoryDeltas.filter(item => item.delta < 0);
+  const strengths = categoryDeltas.filter(item => item.delta > 0).sort((a, b) => b.delta - a.delta);
+
+  const priorityActions = [];
+  const biggestGap = gaps[0];
+  const secondGap = gaps[1];
+  const strongestCapability = strengths[0];
+
+  if (biggestGap) {
+    priorityActions.push({
+      title: `Close ${biggestGap.label} gap (${signedDelta(biggestGap.delta)} pts)`,
+      detail:
+        CATEGORY_PLAYBOOK[biggestGap.key]?.ifBehind ||
+        "Address the largest capability gap through a time-bound program with clear ownership and measurable outcomes.",
+    });
+  }
+
+  if (secondGap) {
+    priorityActions.push({
+      title: `Stabilize ${secondGap.label} (${signedDelta(secondGap.delta)} pts)`,
+      detail:
+        CATEGORY_PLAYBOOK[secondGap.key]?.ifBehind ||
+        "Run a targeted remediation plan on this second-order gap to prevent bottlenecks during AI scaling.",
+    });
+  }
+
+  if (strongestCapability) {
+    priorityActions.push({
+      title: `Leverage ${strongestCapability.label} strength (${signedDelta(strongestCapability.delta)} pts)`,
+      detail:
+        CATEGORY_PLAYBOOK[strongestCapability.key]?.ifAhead ||
+        "Use the strongest capability as a force multiplier to accelerate near-term use-case delivery.",
+    });
+  }
+
+  if (priorityActions.length < 3) {
+    priorityActions.push({
+      title: "Institute quarterly benchmark reviews",
+      detail:
+        "Track score movement against the selected peer baseline each quarter to verify that roadmap actions are closing structural gaps.",
+    });
+  }
+
+  return {
+    overallDelta,
+    percentile,
+    topQuartileScore,
+    pointsToTopQuartile,
+    categoryDeltas,
+    priorityActions,
+  };
 }
 
 function useCountUp(target, duration = 1200) {
@@ -199,6 +391,67 @@ function CategoryBars({ categories, benchmark }) {
   );
 }
 
+function IndustryDeltaPanel({ result, benchmark, compact = false }) {
+  if (!benchmark) return null;
+
+  const insights = buildIndustryInsights(result, benchmark);
+  const actions = compact ? insights.priorityActions.slice(0, 2) : insights.priorityActions;
+  const overallTone = benchmarkDeltaTone(insights.overallDelta);
+
+  return (
+    <div className={`section-block animate-in industry-delta-panel${compact ? " industry-delta-panel--compact" : ""}`}>
+      <div className="section-header">
+        <span className="section-title">Industry Positioning</span>
+        <span className={`industry-overall-chip industry-overall-chip--${overallTone}`}>
+          {benchmarkDeltaLabel(insights.overallDelta)} ({signedDelta(insights.overallDelta)})
+        </span>
+      </div>
+
+      <div className="industry-kpi-grid">
+        <div className="industry-kpi-card">
+          <div className="industry-kpi-label">Selected benchmark</div>
+          <div className="industry-kpi-value">{benchmark.label}</div>
+        </div>
+        <div className="industry-kpi-card">
+          <div className="industry-kpi-label">Estimated peer percentile</div>
+          <div className="industry-kpi-value">
+            {insights.percentile}
+            {percentileSuffix(insights.percentile)}
+          </div>
+        </div>
+        <div className="industry-kpi-card">
+          <div className="industry-kpi-label">Top quartile target</div>
+          <div className="industry-kpi-value">
+            {insights.pointsToTopQuartile === 0 ? "Already top quartile" : `${insights.pointsToTopQuartile} pts to ${insights.topQuartileScore}`}
+          </div>
+        </div>
+      </div>
+
+      <div className="industry-delta-list">
+        {insights.categoryDeltas.map(item => (
+          <div key={item.key} className="industry-delta-row">
+            <div className="industry-delta-name">{item.label}</div>
+            <div className="industry-delta-scores">
+              {item.score} vs {item.benchmarkScore}
+            </div>
+            <div className={`industry-delta-pill industry-delta-pill--${item.tone}`}>{signedDelta(item.delta)}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className={`industry-actions-grid${compact ? " industry-actions-grid--compact" : ""}`}>
+        {actions.map((action, i) => (
+          <div key={`${action.title}-${i}`} className="industry-action-card">
+            <div className="industry-action-step">Priority {i + 1}</div>
+            <div className="industry-action-title">{action.title}</div>
+            <div className="industry-action-detail">{action.detail}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function Blockers({ blockers }) {
   return (
     <div className="blockers-grid">
@@ -233,10 +486,9 @@ function Roadmap({ roadmap }) {
 }
 
 function LoadingSpinner() {
-  const steps = ["Parsing company profile", "Scoring AI readiness", "Identifying blockers", "Building roadmap"];
   const [step, setStep] = useState(0);
   useEffect(() => {
-    const t = setInterval(() => setStep(s => (s + 1) % steps.length), 900);
+    const t = setInterval(() => setStep(s => (s + 1) % LOADING_STEPS.length), 900);
     return () => clearInterval(t);
   }, []);
   return (
@@ -246,12 +498,12 @@ function LoadingSpinner() {
         <div className="loading-ring loading-ring-2" />
       </div>
       <div className="loading-text">Analyzing AI Readiness</div>
-      <div className="loading-step">{steps[step]}<span className="loading-dots">...</span></div>
+      <div className="loading-step">{LOADING_STEPS[step]}<span className="loading-dots">...</span></div>
     </div>
   );
 }
 
-function FollowUpQA({ result, profile }) {
+function FollowUpQA({ result, profile, benchmark }) {
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState("");
   const [thinking, setThinking] = useState(false);
@@ -267,6 +519,14 @@ Assessment results:
 - Verdict: ${result.verdict}
 - Key Blockers: ${result.blockers.map(b => b.title).join(", ")}
 - Risk Summary: ${result.riskSummary}
+
+${benchmark
+  ? `Industry benchmark context:
+- Selected benchmark: ${benchmark.label}
+- Industry average overall score: ${benchmark.overallScore}
+- Top quartile target score: ${benchmark.topQuartileScore}
+- Category averages: Data Maturity ${benchmark.categories.dataMaturity}, Talent & Skills ${benchmark.categories.talentSkills}, Infrastructure ${benchmark.categories.infrastructure}, Org Culture ${benchmark.categories.orgCulture}`
+  : "No industry benchmark was selected for this assessment."}
 
 Answer follow-up questions from the consultant team concisely and analytically. Maintain the tone of a senior advisor. Respond in plain text (no markdown, no bullet points with asterisks — use plain prose or numbered lists only).`;
 
@@ -375,7 +635,7 @@ Answer follow-up questions from the consultant team concisely and analytically. 
   );
 }
 
-function SingleResultPanel({ result, benchmark, profile }) {
+function SingleResultPanel({ result, benchmark }) {
   return (
     <>
       <div className="verdict-bar">
@@ -395,6 +655,8 @@ function SingleResultPanel({ result, benchmark, profile }) {
           <CategoryBars categories={result.categories} benchmark={benchmark} />
         </div>
       </div>
+
+      <IndustryDeltaPanel result={result} benchmark={benchmark} />
 
       <div className="section-block animate-in">
         <div className="section-header">
@@ -445,6 +707,8 @@ function CompareResultColumn({ result, label, benchmark }) {
         <CategoryBars categories={result.categories} benchmark={benchmark} />
       </div>
 
+      <IndustryDeltaPanel result={result} benchmark={benchmark} compact />
+
       <div className="section-block animate-in compare-blockers-block">
         <div className="section-header">
           <span className="section-title">Critical Blockers</span>
@@ -487,6 +751,25 @@ export default function App() {
   const [benchmarkIndex, setBenchmarkIndex] = useState("");
 
   const benchmark = benchmarkIndex !== "" ? INDUSTRY_BENCHMARKS[Number(benchmarkIndex)] : null;
+
+  const inferredSingleIndustry = useMemo(() => inferBenchmarkIndex(input), [input]);
+  const inferredIndustryA = useMemo(() => inferBenchmarkIndex(inputA), [inputA]);
+  const inferredIndustryB = useMemo(() => inferBenchmarkIndex(inputB), [inputB]);
+
+  const suggestedBenchmarkIndex = useMemo(() => {
+    if (benchmarkIndex !== "") return null;
+    if (mode === "single") return inferredSingleIndustry;
+    if (inferredIndustryA != null && inferredIndustryB != null) {
+      return inferredIndustryA === inferredIndustryB ? inferredIndustryA : null;
+    }
+    return inferredIndustryA ?? inferredIndustryB ?? null;
+  }, [benchmarkIndex, mode, inferredSingleIndustry, inferredIndustryA, inferredIndustryB]);
+
+  const compareIndustryMismatch =
+    mode === "compare" &&
+    inferredIndustryA != null &&
+    inferredIndustryB != null &&
+    inferredIndustryA !== inferredIndustryB;
 
   function switchMode(newMode) {
     if (newMode === mode) return;
@@ -576,20 +859,61 @@ export default function App() {
 
         {/* Benchmark Selector */}
         <div className="benchmark-row">
-          <label className="benchmark-label">Compare against industry:</label>
+          <label className="benchmark-label">Compare against industry benchmark:</label>
           <select
             className="benchmark-select"
             value={benchmarkIndex}
             onChange={e => setBenchmarkIndex(e.target.value)}
           >
-            <option value="">— None —</option>
+            <option value="">— Select industry —</option>
             {INDUSTRY_BENCHMARKS.map((b, i) => (
               <option key={b.label} value={i}>
-                {b.label} (avg {b.overallScore})
+                {b.label} (avg {b.overallScore}, top quartile {b.topQuartileScore})
               </option>
             ))}
           </select>
+          {benchmark && (
+            <button
+              type="button"
+              className="benchmark-clear-btn"
+              onClick={() => setBenchmarkIndex("")}
+            >
+              Clear
+            </button>
+          )}
         </div>
+
+        {benchmark && (
+          <div className="benchmark-context">
+            <div className="benchmark-context-title">{benchmark.label} peer baseline</div>
+            <div className="benchmark-context-text">{benchmark.summary}</div>
+            <div className="benchmark-context-metrics">
+              <span>Industry avg: {benchmark.overallScore}</span>
+              <span>Top quartile target: {benchmark.topQuartileScore}</span>
+            </div>
+          </div>
+        )}
+
+        {!benchmark && suggestedBenchmarkIndex != null && (
+          <div className="benchmark-suggestion">
+            <span>
+              Suggested benchmark: <strong>{INDUSTRY_BENCHMARKS[suggestedBenchmarkIndex].label}</strong>
+            </span>
+            <button
+              type="button"
+              className="benchmark-apply-btn"
+              onClick={() => setBenchmarkIndex(String(suggestedBenchmarkIndex))}
+            >
+              Apply Suggestion
+            </button>
+          </div>
+        )}
+
+        {compareIndustryMismatch && (
+          <div className="benchmark-warning">
+            Profiles appear to map to different industries ({INDUSTRY_BENCHMARKS[inferredIndustryA].label} vs {INDUSTRY_BENCHMARKS[inferredIndustryB].label}). A single benchmark can still be used, but peer deltas are more reliable when each profile is evaluated against its own industry.
+          </div>
+        )}
 
         {/* Single Mode Input */}
         {mode === "single" && (
@@ -716,8 +1040,8 @@ export default function App() {
         {/* Single Results */}
         {mode === "single" && result && !loading && (
           <section className="results-section" ref={resultsRef}>
-            <SingleResultPanel result={result} benchmark={benchmark} profile={input} />
-            <FollowUpQA result={result} profile={input} />
+            <SingleResultPanel result={result} benchmark={benchmark} />
+            <FollowUpQA result={result} profile={input} benchmark={benchmark} />
           </section>
         )}
 
@@ -739,6 +1063,11 @@ export default function App() {
                 >
                   {maturityLabel(resultA.overallScore)}
                 </div>
+                {benchmark && (
+                  <div className={`compare-score-delta compare-score-delta--${benchmarkDeltaTone(resultA.overallScore - benchmark.overallScore)}`}>
+                    {signedDelta(resultA.overallScore - benchmark.overallScore)} vs {benchmark.label} avg
+                  </div>
+                )}
               </div>
               <div className="compare-vs">VS</div>
               <div className="compare-score-item">
@@ -755,6 +1084,11 @@ export default function App() {
                 >
                   {maturityLabel(resultB.overallScore)}
                 </div>
+                {benchmark && (
+                  <div className={`compare-score-delta compare-score-delta--${benchmarkDeltaTone(resultB.overallScore - benchmark.overallScore)}`}>
+                    {signedDelta(resultB.overallScore - benchmark.overallScore)} vs {benchmark.label} avg
+                  </div>
+                )}
               </div>
             </div>
 
