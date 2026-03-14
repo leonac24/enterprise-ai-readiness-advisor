@@ -490,11 +490,6 @@ function CategoryBars({ categories, benchmark, startDelay = 0 }) {
           />
         );
       })}
-      {benchmark && (
-        <div className="benchmark-note">
-          Industry avg: <strong>{benchmark.overallScore}</strong> — {benchmark.label}
-        </div>
-      )}
     </div>
   );
 }
@@ -546,21 +541,74 @@ function IndustryDeltaPanel({ result, benchmark, compact = false }) {
         ))}
       </div>
 
-      <div className="industry-delta-list">
-        {insights.categoryDeltas.map((item, index) => (
-          <div
-            key={item.key}
-            className="industry-delta-row industry-animate-item"
-            style={{ "--industry-delay": `${420 + index * 80}ms` }}
-          >
-            <div className="industry-delta-name">{item.label}</div>
-            <div className="industry-delta-scores">
-              {item.score} vs {item.benchmarkScore}
+      {compact ? (
+        <div className="industry-delta-list">
+          {insights.categoryDeltas.map((item, index) => (
+            <div
+              key={item.key}
+              className="industry-delta-row industry-animate-item"
+              style={{ "--industry-delay": `${420 + index * 80}ms` }}
+            >
+              <div className="industry-delta-name">{item.label}</div>
+              <div className={`industry-delta-pill industry-delta-pill--${item.tone}`}>{signedDelta(item.delta)}</div>
             </div>
-            <div className={`industry-delta-pill industry-delta-pill--${item.tone}`}>{signedDelta(item.delta)}</div>
+          ))}
+        </div>
+      ) : (
+        <>
+          <div className="industry-compare-legend industry-animate-item" style={{ "--industry-delay": "380ms" }}>
+            <div className="industry-compare-legend-item">
+              <span className="industry-compare-legend-swatch industry-compare-legend-swatch--client" />
+              Client score
+            </div>
+            <div className="industry-compare-legend-item">
+              <span className="industry-compare-legend-swatch industry-compare-legend-swatch--industry" />
+              Industry score
+            </div>
           </div>
-        ))}
-      </div>
+
+          <div className="industry-compare-list">
+            {insights.categoryDeltas.map((item, index) => {
+              const industryWidth = clamp(item.benchmarkScore, 0, 100);
+              const clientWidth = clamp(item.score, 0, 100);
+
+              return (
+                <div
+                  key={item.key}
+                  className="industry-compare-row industry-animate-item"
+                  style={{ "--industry-delay": `${430 + index * 90}ms` }}
+                >
+                  <div className="industry-delta-name industry-compare-name">{item.label}</div>
+
+                  <div className="industry-compare-bars" title={`Client ${item.score} vs industry ${item.benchmarkScore}`}>
+                    <div className="industry-compare-series">
+                      <div className="industry-compare-track">
+                        <div
+                          className="industry-compare-bar industry-compare-bar--industry"
+                          style={{ width: `${industryWidth}%` }}
+                        />
+                      </div>
+                      <span className="industry-compare-score">{item.benchmarkScore}</span>
+                    </div>
+
+                    <div className="industry-compare-series">
+                      <div className="industry-compare-track">
+                        <div
+                          className="industry-compare-bar industry-compare-bar--client"
+                          style={{ width: `${clientWidth}%` }}
+                        />
+                      </div>
+                      <span className="industry-compare-score">{item.score}</span>
+                    </div>
+                  </div>
+
+                  <div className={`industry-delta-pill industry-delta-pill--${item.tone}`}>{signedDelta(item.delta)}</div>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
 
       <div className={`industry-actions-grid${compact ? " industry-actions-grid--compact" : ""}`}>
         {actions.map((action, i) => (
