@@ -251,7 +251,7 @@ export default function App() {
                     onClick={analyze}
                     disabled={loading || !input.trim()}
                   >
-                    {loading ? "Analyzing..." : "Run Assessment ->"}
+                    {loading ? "Analyzing..." : "Run Assessment"}
                   </button>
                 </div>
               </div>
@@ -323,7 +323,7 @@ export default function App() {
                   onClick={runComparison}
                   disabled={compareLoading || !inputA.trim() || !inputB.trim()}
                 >
-                  {compareLoading ? "Analyzing..." : "Run Comparison ->"}
+                  {compareLoading ? "Analyzing..." : "Run Comparison"}
                 </button>
               </div>
             </div>
