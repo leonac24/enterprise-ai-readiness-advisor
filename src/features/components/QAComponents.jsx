@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { CATEGORY_LABELS } from "../config/constants";
 import { maturityLabel, signedDelta } from "../core/utils";
 
+// Injects optional benchmark context so advisor answers can reference peer baselines.
 export function benchmarkPromptContext(benchmark) {
   return benchmark
     ? `Industry benchmark context:
@@ -33,6 +34,7 @@ export function AdvisorQASection({ qaSystemPrompt, emptyText, animationDelay = "
     setThinking(true);
 
     try {
+      // Replays the visible conversation so each response has full context.
       const contents = newMessages.map((message) => ({
         role: message.role === "user" ? "user" : "model",
         parts: [{ text: message.text }],
@@ -129,6 +131,7 @@ export function AdvisorQASection({ qaSystemPrompt, emptyText, animationDelay = "
   );
 }
 
+// Single-assessment wrapper that builds a focused advisor prompt.
 export function FollowUpQA({ result, profile, benchmark }) {
   const qaSystemPrompt = `You are a senior enterprise AI readiness consultant. You have just completed an assessment of the following client profile:
 
@@ -154,6 +157,7 @@ Answer follow-up questions from the consultant team concisely and analytically. 
   );
 }
 
+// Compare-mode wrapper with explicit A/B deltas for advisor follow-ups.
 export function CompareFollowUpQA({ resultA, resultB, profileA, profileB, benchmark }) {
   const categoryComparison = Object.keys(CATEGORY_LABELS)
     .map((key) => {

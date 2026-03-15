@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { CATEGORY_LABELS, CATEGORY_PLAYBOOK, INDUSTRY_KEYWORDS } from "../config/constants";
 
+// Presentation helpers used by charts, badges, and compare labels.
 export function scoreColor(score) {
   if (score >= 70) return "#86bc25";
   if (score >= 40) return "#e67e22";
@@ -55,6 +56,7 @@ export function benchmarkDeltaLabel(delta) {
   return "At peer parity";
 }
 
+// Picks the best-matching benchmark index from free-text profile content.
 export function inferBenchmarkIndex(text) {
   const source = text.trim().toLowerCase();
   if (!source) return null;
@@ -77,6 +79,7 @@ export function inferBenchmarkIndex(text) {
   return bestScore > 0 ? bestIndex : null;
 }
 
+// Computes roll-up insights used by the industry positioning panel.
 export function buildIndustryInsights(result, benchmark) {
   const categoryDeltas = Object.entries(result.categories || {})
     .map(([key, score]) => {
@@ -151,6 +154,7 @@ export function buildIndustryInsights(result, benchmark) {
   };
 }
 
+// One-time visibility hook to stagger entrance animations as sections scroll into view.
 export function useInViewOnce(threshold = 0.18, rootMargin = "0px 0px -10% 0px") {
   const ref = useRef(null);
   const [isVisible, setIsVisible] = useState(false);
@@ -184,6 +188,7 @@ export function useInViewOnce(threshold = 0.18, rootMargin = "0px 0px -10% 0px")
   return [ref, isVisible];
 }
 
+// Lightweight count-up animation for score and bar transitions.
 export function useCountUp(target, duration = 1200, delay = 0) {
   const [count, setCount] = useState(0);
 

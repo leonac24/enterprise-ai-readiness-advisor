@@ -1,3 +1,4 @@
+// Shared prompt and product copy used across single and compare flows.
 export const SYSTEM_PROMPT = `You are an enterprise AI readiness consultant. Analyze the company description provided and return ONLY valid JSON with no markdown, no code fences, and no extra text. The JSON must match this exact structure:
 {
   "overallScore": <integer 0-100>,
@@ -18,6 +19,7 @@ export const SYSTEM_PROMPT = `You are an enterprise AI readiness consultant. Ana
 }
 Write all output from the perspective of a senior consultant advising the organization — use "the client", "we recommend", "our assessment", "the organization should". Never use first-person from the client's perspective. Return between 3-5 blockers and 4-6 roadmap steps. Be specific, analytical, and enterprise-grade in your assessment.`;
 
+// Seed examples for quick demos and testing.
 export const EXAMPLES = [
   "The client is a 5,000-person regional bank operating across eight US states with retail, commercial, and wealth lines of business. Core transaction processing still runs on COBOL mainframes, customer data is spread across fourteen data marts, and each division has its own analytics backlog and KPIs. The fraud and AML teams use rules-based tooling with limited real-time scoring, while branch operations still rely on manual document review for many KYC workflows. There are no dedicated ML engineers, only a 12-person BI team focused on reporting, and model governance currently sits entirely inside risk and compliance with long approval cycles. The CEO and business-unit leaders are pushing for AI-enabled service and underwriting improvements, but infrastructure and security leadership are cautious due to legacy debt, strict regulatory scrutiny, and prior failed modernization programs.",
   "The client is a 200-person healthcare SaaS company providing care coordination software to mid-sized provider networks, with operations in the US and Canada. Their stack is modern AWS (EKS, Snowflake, dbt, and event-driven services), and the data engineering group is strong, but data definitions vary by product team and patient identity resolution is still brittle across integrations. Product leadership wants to launch clinical documentation copilots and automated prior-authorization support, while customer success wants predictive churn and outcomes risk models. The company has HIPAA and SOC 2 controls in place, but PHI handling practices differ between engineering teams, redaction coverage is incomplete in logs, and there is no formal model risk management framework. Legal and compliance teams support AI adoption in principle, yet deployment velocity is slowed by uncertainty around explainability expectations, audit readiness, and incident response ownership for AI-assisted workflows.",
@@ -26,6 +28,7 @@ export const EXAMPLES = [
   "The client is a national grocery retailer with 1,100 stores, a growing e-commerce business, and private-label manufacturing partnerships across multiple categories. Point-of-sale, loyalty, promotion, and supply-chain data are available at scale, but demand forecasting logic still varies by region and pricing changes are often approved manually by category managers. Merchandising and digital teams use dashboards extensively, yet insights are not consistently operationalized into replenishment, markdown, or assortment decisions. The organization has piloted AI for personalized offers and out-of-stock prediction, but model performance drops when local events, weather shifts, or supplier disruptions occur because feature pipelines are not standardized. Data science capability is concentrated in headquarters with limited regional adoption support, and store operations teams report low trust in centrally produced recommendations. Leadership wants to improve margin, inventory turns, and customer retention through AI, but needs stronger governance, better integration with planning systems, and clearer accountability for value realization across merchandising, supply chain, and store execution.",
 ];
 
+// One-click presets to load two curated examples in compare mode.
 export const COMPARE_EXAMPLE_PRESETS = [
   { label: "Example 1 vs Example 2", a: 0, b: 1 },
   { label: "Example 1 vs Example 3", a: 0, b: 2 },
@@ -33,6 +36,7 @@ export const COMPARE_EXAMPLE_PRESETS = [
   { label: "Example 3 vs Example 5", a: 2, b: 4 },
 ];
 
+// Text/animation configuration for the loading experience.
 export const LOADING_STEPS = ["Parsing company profile", "Scoring AI readiness", "Identifying blockers", "Building roadmap"];
 
 export const GAUGE_CONFETTI_PARTICLES = [
@@ -50,6 +54,7 @@ export const GAUGE_CONFETTI_PARTICLES = [
   { x: 82, y: 52, dx: 21, dy: -10, spin: 53, delay: 560, duration: 960, hue: "#f39c12" },
 ];
 
+// Display labels and advisory guidance by capability dimension.
 export const CATEGORY_LABELS = {
   dataMaturity: "Data Maturity",
   talentSkills: "Talent & Skills",
@@ -84,6 +89,7 @@ export const CATEGORY_PLAYBOOK = {
   },
 };
 
+// Lightweight keyword routing and peer baseline data for industry comparison.
 export const INDUSTRY_KEYWORDS = [
   ["bank", "banking", "financial", "fintech", "insurance", "wealth", "credit union", "lending"],
   ["healthcare", "hospital", "clinical", "hipaa", "pharma", "payer", "provider"],

@@ -12,6 +12,7 @@ import {
   signedDelta,
 } from "../core/utils";
 
+// Full single-profile report layout.
 export function SingleResultPanel({ result, benchmark }) {
   return (
     <>
@@ -62,6 +63,7 @@ export function SingleResultPanel({ result, benchmark }) {
   );
 }
 
+// Reusable per-profile column used in compare mode.
 export function CompareResultColumn({ result, label, benchmark, columnIndex = 0 }) {
   const columnDelay = columnIndex * 80;
 
@@ -115,6 +117,7 @@ export function CompareResultColumn({ result, label, benchmark, columnIndex = 0 
   );
 }
 
+// Top-level score summary shown above compare columns.
 export function CompareScoreBanner({ resultA, resultB, benchmark }) {
   return (
     <div className="compare-score-banner animate-in">

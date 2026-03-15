@@ -15,6 +15,7 @@ import {
   SingleResultPanel,
 } from "./features/components/ResultPanels";
 
+// Composition root: owns page-level state and stitches feature modules together.
 export default function App() {
   const [mode, setMode] = useState("single");
 
@@ -37,6 +38,7 @@ export default function App() {
   // Benchmark state
   const [benchmarkIndex, setBenchmarkIndex] = useState("");
 
+  // Resolve selected benchmark and infer likely industry from free-text profiles.
   const benchmark = benchmarkIndex !== "" ? INDUSTRY_BENCHMARKS[Number(benchmarkIndex)] : null;
 
   const inferredSingleIndustry = useMemo(() => inferBenchmarkIndex(input), [input]);
@@ -58,6 +60,7 @@ export default function App() {
     inferredIndustryB != null &&
     inferredIndustryA !== inferredIndustryB;
 
+  // Mode switch keeps inputs but clears stale result artifacts.
   function switchMode(newMode) {
     if (newMode === mode) return;
     setMode(newMode);
@@ -75,6 +78,7 @@ export default function App() {
     setResult(null);
 
     try {
+      // Single-profile assessment pipeline.
       const parsed = await callGemini(input);
       setResult(parsed);
       setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
@@ -93,6 +97,7 @@ export default function App() {
     setResultB(null);
 
     try {
+      // Compare mode runs both assessments in parallel for a faster turnaround.
       const [parsedA, parsedB] = await Promise.all([callGemini(inputA), callGemini(inputB)]);
       setResultA(parsedA);
       setResultB(parsedB);
@@ -132,6 +137,7 @@ export default function App() {
       </div>
 
       <div className="page">
+        {/* Controls */}
         <div className="mode-toggle-row">
           <div className="mode-toggle">
             <button
@@ -207,6 +213,8 @@ export default function App() {
         )}
 
         {mode === "single" && (
+          <>
+          {/* Input + action block for one organization. */}
           <section className="input-section">
             <div className="input-card">
               <label className="input-label">
@@ -249,9 +257,12 @@ export default function App() {
               </div>
             </div>
           </section>
+          </>
         )}
 
         {mode === "compare" && (
+          <>
+          {/* Side-by-side intake for two organizations. */}
           <section className="compare-inputs-section">
             <div className="compare-inputs-grid">
               <div className="input-card">
@@ -317,6 +328,7 @@ export default function App() {
               </div>
             </div>
           </section>
+          </>
         )}
 
         {mode === "single" && loading && <LoadingSpinner />}
@@ -336,13 +348,18 @@ export default function App() {
         )}
 
         {mode === "single" && result && !loading && (
+          <>
+          {/* Single assessment report with follow-up advisor chat. */}
           <section className="results-section" ref={resultsRef}>
             <SingleResultPanel result={result} benchmark={benchmark} />
             <FollowUpQA result={result} profile={input} benchmark={benchmark} />
           </section>
+          </>
         )}
 
         {mode === "compare" && resultA && resultB && !compareLoading && (
+          <>
+          {/* Comparative report with per-profile detail columns and Q&A. */}
           <section className="results-section compare-results-section" ref={compareResultsRef}>
             <CompareScoreBanner resultA={resultA} resultB={resultB} benchmark={benchmark} />
 
@@ -359,6 +376,7 @@ export default function App() {
               benchmark={benchmark}
             />
           </section>
+          </>
         )}
       </div>
 

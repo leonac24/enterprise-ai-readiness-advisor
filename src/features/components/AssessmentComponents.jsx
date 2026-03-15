@@ -23,6 +23,7 @@ import {
   maturityLabel,
 } from "../core/utils";
 
+// Headline radial gauge shown in result panels.
 export function ScoreGauge({ score, benchmarkScore }) {
   const animated = useCountUp(score);
   const isSettled = score > 0 && animated >= score;
@@ -85,6 +86,7 @@ export function ScoreGauge({ score, benchmarkScore }) {
   );
 }
 
+// Internal row renderer so category bars can be animated with per-row delays.
 function AnimatedCategoryBar({ categoryKey, value, benchmarkValue, index, startDelay = 0 }) {
   const rowDelay = startDelay + index * 120;
   const animatedValue = useCountUp(value, 950, rowDelay);
@@ -107,6 +109,7 @@ function AnimatedCategoryBar({ categoryKey, value, benchmarkValue, index, startD
   );
 }
 
+// Capability score breakdown with optional benchmark markers.
 export function CategoryBars({ categories, benchmark, startDelay = 0 }) {
   return (
     <div className="category-bars">
@@ -127,6 +130,7 @@ export function CategoryBars({ categories, benchmark, startDelay = 0 }) {
   );
 }
 
+// Industry comparison section used in full mode and compact compare mode.
 export function IndustryDeltaPanel({ result, benchmark, compact = false }) {
   const [panelRef, panelVisible] = useInViewOnce(0.2, "0px 0px -8% 0px");
   if (!benchmark) return null;
@@ -261,6 +265,7 @@ export function IndustryDeltaPanel({ result, benchmark, compact = false }) {
   );
 }
 
+// Structured blocker cards with reveal animation.
 export function Blockers({ blockers }) {
   const [blockersRef, blockersVisible] = useInViewOnce(0.22, "0px 0px -8% 0px");
 
@@ -277,6 +282,7 @@ export function Blockers({ blockers }) {
   );
 }
 
+// Ordered transformation phases with a visual timeline.
 export function Roadmap({ roadmap }) {
   const [roadmapRef, roadmapVisible] = useInViewOnce(0.25, "0px 0px -12% 0px");
 
@@ -298,6 +304,7 @@ export function Roadmap({ roadmap }) {
   );
 }
 
+// Shared loading treatment for both assessment modes.
 export function LoadingSpinner() {
   const [step, setStep] = useState(0);
 

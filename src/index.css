@@ -1,7 +1,9 @@
+/* Global reset for predictable sizing across components. */
 *, *::before, *::after {
   box-sizing: border-box;
 }
 
+/* App-wide defaults before feature-specific styles in App.css. */
 body {
   margin: 0;
   background: #f0f2f5;
@@ -11,6 +13,7 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Ensures the app shell can stretch to full viewport height. */
 #root {
   min-height: 100vh;
 }
