@@ -123,9 +123,8 @@ export default function App() {
         <div className="header-inner">
           <div className="header-logo">
             <div className="logo-dot" />
-            <span className="header-title">AI Readiness Advisor</span>
+            <span className="header-title">Enterprise AI Readiness Advisor</span>
           </div>
-          <span className="header-badge">Enterprise</span>
         </div>
       </header>
 
